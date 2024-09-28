@@ -1,0 +1,71 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
+# Step 1: Create sample patient-level data
+np.random.seed(42)
+
+# Create a list of PCPs
+pcps = ['PCP_1', 'PCP_2', 'PCP_3', 'PCP_4', 'PCP_5', 'PCP_6', 'PCP_7']
+
+# Sample patient-level data with demographics and PCP assignment
+data = {
+    'Patient_ID': range(1, 301),
+    'Age': np.random.randint(0, 80, size=300),
+    'Gender': np.random.choice(['Male', 'Female'], size=300),
+    'Assigned_PCP': np.random.choice(pcps, size=300),
+}
+
+df = pd.DataFrame(data)
+
+# Ensure appropriate patient assignments
+df.loc[df['Age'] < 18, 'Assigned_PCP_Type'] = 'Pediatrician'
+df.loc[(df['Age'] >= 18) & (df['Gender'] == 'Female') & (np.random.rand(len(df)) < 0.2), 'Assigned_PCP_Type'] = 'OB/GYN'
+df.loc[df['Age'] >= 18, 'Assigned_PCP_Type'] = 'General PCP'
+
+# Step 2: Add specific quality and efficiency measures at the patient level
+
+# Adding quality measures for patients
+df['Preventive_Care_Compliance'] = np.random.uniform(60, 100, size=300)
+df['Chronic_Disease_Management'] = np.random.uniform(50, 100, size=300)
+df['Patient_Satisfaction'] = np.random.uniform(70, 100, size=300)
+
+# Adding efficiency measures for patients
+df['Time_per_Visit'] = np.random.uniform(10, 60, size=300)  # In minutes
+df['Cost_per_Patient'] = np.random.uniform(200, 1000, size=300)  # In dollars
+df['Referral_Rate'] = np.random.uniform(0, 20, size=300)  # Percentage of patients referred
+
+# Step 3: Aggregate patient-level data to create PCP-level data
+# We will take the mean of the quality and efficiency measures for each PCP
+
+pcp_agg = df.groupby('Assigned_PCP').agg(
+    Preventive_Care_Compliance=('Preventive_Care_Compliance', 'mean'),
+    Chronic_Disease_Management=('Chronic_Disease_Management', 'mean'),
+    Patient_Satisfaction=('Patient_Satisfaction', 'mean'),
+    Time_per_Visit=('Time_per_Visit', 'mean'),
+    Cost_per_Patient=('Cost_per_Patient', 'mean'),
+    Referral_Rate=('Referral_Rate', 'mean')
+).reset_index()
+
+# Step 4: Normalize the data
+scaler = StandardScaler()
+quality_measures = ['Preventive_Care_Compliance', 'Chronic_Disease_Management', 'Patient_Satisfaction']
+efficiency_measures = ['Time_per_Visit', 'Cost_per_Patient', 'Referral_Rate']
+
+pcp_agg[quality_measures + efficiency_measures] = scaler.fit_transform(pcp_agg[quality_measures + efficiency_measures])
+
+# Step 5: Create a combined performance score for each PCP
+pcp_agg['Performance_Score'] = (
+    0.4 * pcp_agg['Preventive_Care_Compliance'] +
+    0.4 * pcp_agg['Chronic_Disease_Management'] +
+    0.2 * pcp_agg['Patient_Satisfaction'] +
+    0.3 * (1 - pcp_agg['Time_per_Visit']) +
+    0.3 * (1 - pcp_agg['Cost_per_Patient']) +
+    0.4 * (1 - pcp_agg['Referral_Rate'])
+)
+
+# Step 6: Rank PCPs based on the performance score
+pcp_agg['Performance_Rank'] = pcp_agg['Performance_Score'].rank(ascending=False)
+
+# Output the final PCP-level dataset
+import ace_tools as tools; tools.display_dataframe_to_user(name="PCP-L
